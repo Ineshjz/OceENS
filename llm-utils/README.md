@@ -1,39 +1,30 @@
-# LLM Utilities for OceENS
+# LLM utilities for OceENS
 
-Outils annexes autour des fournisseurs LLM du projet OceENS.
+Tools around the project's LLM providers that live outside the application.
 
-## Le suivi des coûts a été déplacé dans l'application
+## Cost tracking has moved into the application
 
-Ce dossier contenait `token-counting/`, qui estimait le nombre de tokens du
-**code source du dépôt** (`*.py`) et le multipliait par un tarif codé en dur.
-Cette mesure ne disait rien de ce que l'application dépense réellement : les
-synthèses de verbatims consomment des tokens de *prompts et de réponses*, pas
-de fichiers Python, et l'approximation « 4 caractères = 1 token » ne
-correspond au tokenizer d'aucun fournisseur.
+This folder used to hold `token-counting/`, which estimated the number of tokens in the **repository's source code** (`*.py`) and multiplied it by a hard-coded rate. That measure said nothing about what the application actually spends: summaries of free-text answers consume *prompt and response* tokens, not Python files, and the "4 characters = 1 token" approximation matches no provider's tokenizer.
 
-Le suivi des coûts est désormais **mesuré, pas estimé**, et intégré à
-l'application :
+Cost tracking is now **measured, not estimated**, and built into the application:
 
-| Où | Quoi |
+| Where | What |
 | --- | --- |
-| `services/llm_costs.py` | Calcul du coût à partir des tokens réellement consommés |
-| `/backend/llm/prices` | Grille tarifaire par modèle, éditable (admin) |
-| `/backend/llm/costs` | Coût global, détaillé par sondage et par modèle (admin) |
-| Bouton 💰 sur une ligne de sondage | Coût des synthèses de ce sondage |
+| `services/llm_costs.py` | Cost computed from the tokens actually consumed |
+| `/backend/llm/prices` | Editable price list per model (admin) |
+| `/backend/llm/costs` | Overall cost, broken down by survey and by model (admin) |
+| 💰 button on a survey row | Cost of that survey's summaries |
 
-Le daemon enregistre les compteurs renvoyés par le fournisseur
-(`Summary.input_tokens` / `output_tokens` / `model_used`) au moment de la
-génération : c'est la seule occasion de les capturer, aucune API ne permet de
-les redemander après coup.
+The daemon records the counts returned by the provider (`Summary.input_tokens` / `output_tokens` / `model_used`) at generation time: it is the only chance to capture them, as no API lets you ask for them afterwards.
 
-Voir la section « Coût des synthèses » du README racine.
+See the "Summary costs" section of the root README.
 
 ---
 
-## Utilitaires à venir
+## Planned utilities
 
-Ce dossier reste destiné aux outils LLM hors application :
+This folder remains meant for LLM tools outside the application:
 
-- gestion et versionnage de prompts ;
-- évaluation comparative de modèles ;
-- scripts de bascule entre fournisseurs.
+- prompt management and versioning;
+- comparative model evaluation;
+- provider switching scripts.
