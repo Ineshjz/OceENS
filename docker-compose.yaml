@@ -8,8 +8,8 @@ services:
     env_file:
       - .env
     environment:
-      # LOCAL_DATABASE_DIR du .env désigne le dossier de l'hôte monté ci-dessous ;
-      # dans le conteneur, la base doit rester dans le point de montage.
+      # LOCAL_DATABASE_DIR in .env names the host folder mounted below; inside
+      # the container, the database must stay in the mount point.
       LOCAL_DATABASE_DIR: /app/database
     volumes:
       - ${LOCAL_DATABASE_DIR:-./database}:/app/database
