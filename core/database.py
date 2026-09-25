@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
+from dotenv import load_dotenv
 from fastapi import Depends
 from sqlalchemy import text
 from sqlmodel import SQLModel, create_engine, Session, select
@@ -21,7 +22,10 @@ from models import User
 logger = logging.getLogger("uvicorn.error")
 
 # Emplacement du fichier de base : configurable via la variable d'environnement
-# LOCAL_DATABASE_DIR, sinon dossier database/ à la racine du projet (ignoré par Git)
+# LOCAL_DATABASE_DIR, sinon dossier database/ à la racine du projet (ignoré par Git).
+# This module is imported before any other load_dotenv() call (by core.auth and
+# by the daemon): without this call, the value from .env would be ignored.
+load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATABASE_DIR = PROJECT_ROOT / "database"
 RAW_DATABASE_PATH = os.getenv("LOCAL_DATABASE_DIR")
