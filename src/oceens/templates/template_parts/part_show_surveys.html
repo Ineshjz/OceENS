@@ -331,16 +331,16 @@
 
     {% if can_generate_summaries and survey['submissions_count'] > 0 %}
     {% if survey['is_generating'] %}
-    {% set survey_summaries = summaries.get(survey['survey_id'], {}) %}
-    {% set summaries_count = survey_summaries.get('summaries_count', 0) %}
-    {% set summaries_done = survey_summaries.get('summaries_done', 0) %}
-    {% set summaries_error = survey_summaries.get('summaries_error', 0) %}
-    {% if summaries_count > 0 and summaries_count == summaries_done + summaries_error %}
+    {# Avancement lu dans la file des synthèses : comptes, règle « terminé » et
+       temps restant estimé y sont calculés, pas ici. #}
+    {% set progress = summaries.get(survey['survey_id']) %}
+    {% if progress and progress.finished %}
     <button class="row-icon row-icon-summaries row-icon-summaries-done"
-      title="Génération des résumés terminée : {{ summaries_done }}/{{ summaries_count }} ({{ summaries_error }} erreur(s))">🤖</button>
+      title="Génération des résumés terminée : {{ progress.done }}/{{ progress.total }} ({{ progress.error }} erreur(s))">🤖</button>
     {% else %}
+    {% set eta_minutes = ((progress.eta_seconds / 60) | round(0, 'ceil') | int) if progress and progress.eta_seconds else 0 %}
     <button class="row-icon row-icon-summaries row-icon-summaries-processing" onclick="window.location.reload();"
-      title="Génération des résumés en cours : {{ summaries_done }}/{{ summaries_count }} ({{ summaries_error }} erreur(s))">🤖</button>
+      title="Génération des résumés en cours : {{ progress.done if progress else 0 }}/{{ progress.total if progress else 0 }} ({{ progress.error if progress else 0 }} erreur(s)){% if eta_minutes %} — temps restant estimé : {{ eta_minutes // 60 }} h {{ '%02d' % (eta_minutes % 60) }}{% endif %}">🤖</button>
     {% endif %}
     <form method="post" action="/api/surveys/{{ survey['survey_id'] }}/destroy-summaries" class="destroy-summaries"
       onsubmit="return confirm('Supprimer définitivement les résumés déjà générés ? Cette action est irréversible.');">
@@ -360,8 +360,8 @@
        synthèse générée : avant, il n'y a rien à facturer et le bouton
        n'afficherait qu'un zéro trompeur. #}
     {% if can_generate_summaries %}
-    {% set survey_done = summaries.get(survey['survey_id'], {}).get('summaries_done', 0) %}
-    {% if survey_done > 0 %}
+    {% set survey_progress = summaries.get(survey['survey_id']) %}
+    {% if survey_progress and survey_progress.done > 0 %}
     <button type="button" class="row-icon row-icon-cost" title="Coût des synthèses de ce sondage"
       aria-label="Coût des synthèses de ce sondage"
       data-cost-survey="{{ survey['survey_id'] }}"

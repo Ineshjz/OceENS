@@ -8,13 +8,18 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import case, func, select
 from oceens.core.auth import get_current_user
 from oceens.core.database import SessionDep
-from oceens.models import Answer, Module, Option, Program, Prompt, Question, Respondent, Role, Submission, Summary, Survey, Template, User
+from oceens.models import Answer, Module, Option, Program, Prompt, Question, Respondent, Role, Submission, Survey, Template, User
 from oceens.core.dependencies import templates
 from oceens.core.security import VALID_ROLES, can_duplicate_survey, check_role, get_allowed_campuses, get_campus_manager_program_codes, get_results_program_codes, get_student_dashboard_redirect, parse_role_scopes, parse_rprm_formations, require_roles, role_to_dashboard_slug
+from oceens.services.summaries_queue import survey_progress
 from oceens.services.helpers import build_survey_prefill, filter_surveys, get_avg_stats, get_dashboard_navigation, get_stats_by_survey, teacher_sort_key
 
 router = APIRouter(tags=["Pages"])
 dashboard_router = APIRouter(tags=["Dashboard"], prefix="/dashboard")
+
+# Durée typique d'une synthèse, pour le temps restant estimé (Design Document
+# #111, hypothèse B : 18,6 s mesurées le 25 septembre 2026, arrondies à 20 s).
+SECONDS_PER_SUMMARY_JOB = 20
 
 
 # ┌─ Route : Page d'accueil (version app.py conservée) ──────────────┐
@@ -358,18 +363,7 @@ async def program_manager_dashboard(
         {"prompt_id": p.prompt_id, "description": p.description} for p in  session.exec(select(Prompt)).all()
     ]
 
-    summary_rows = session.exec(select(Summary.survey_id,func.count(Summary.summary_id),func.count(Summary.summary_text),func.sum(case(
-   (
-       Summary.http_status == 0,0
-   ),
-   (
-       Summary.http_status == 200,0
-   ),
-   else_=1
-))).group_by(Summary.survey_id)).all()
-
-    summaries = { s[0]:
-         {"summaries_count": s[1], "summaries_done": s[2], "summaries_error": s[3]} for s in  summary_rows }
+    summaries = survey_progress(session, seconds_per_job=SECONDS_PER_SUMMARY_JOB)
 
 
     context = {
@@ -799,18 +793,7 @@ async def facilitator_dashboard(
         {"prompt_id": p.prompt_id, "description": p.description} for p in  session.exec(select(Prompt)).all()
     ]
 
-    summary_rows = session.exec(select(Summary.survey_id,func.count(Summary.summary_id),func.count(Summary.summary_text),func.sum(case(
-   (
-       Summary.http_status == 0,0
-   ),
-   (
-       Summary.http_status == 200,0
-   ),
-   else_=1
-))).group_by(Summary.survey_id)).all()
-
-    summaries = { s[0]:
-         {"summaries_count": s[1], "summaries_done": s[2], "summaries_error": s[3]} for s in  summary_rows }
+    summaries = survey_progress(session, seconds_per_job=SECONDS_PER_SUMMARY_JOB)
 
     context = {
         "user": user,
@@ -977,18 +960,7 @@ async def admin_dashboard(
         {"prompt_id": p.prompt_id, "description": p.description} for p in  session.exec(select(Prompt)).all()
     ]
 
-    summary_rows = session.exec(select(Summary.survey_id,func.count(Summary.summary_id),func.count(Summary.summary_text),func.sum(case(
-    (
-        Summary.http_status == 0,0
-    ),
-    (
-        Summary.http_status == 200,0
-    ),
-    else_=1
-    ))).group_by(Summary.survey_id)).all()
-
-    summaries = { s[0]:
-         {"summaries_count": s[1], "summaries_done": s[2], "summaries_error": s[3]} for s in  summary_rows }
+    summaries = survey_progress(session, seconds_per_job=SECONDS_PER_SUMMARY_JOB)
 
     context = {
         "user": user,
