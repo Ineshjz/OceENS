@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [course-2026-fallback-clean-bench]
   pull_request:
 
 jobs:
