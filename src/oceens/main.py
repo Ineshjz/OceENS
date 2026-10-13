@@ -55,6 +55,11 @@ load_dotenv()
 # localise par rapport à ce fichier pour ne pas dépendre du répertoire courant.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+# Le commit dont l'image a été construite (Dockerfile, `ARG REVISION`), renvoyé
+# dans l'en-tête `X-Revision` : le déploiement sait ainsi quelle image répond.
+# Hors d'une image, "unknown".
+REVISION = os.getenv("REVISION", "unknown")
+
 # Valeurs de RUN_SUMMARIES_DAEMON interprétées comme "activé"
 _TRUTHY = {"1", "true", "yes", "on"}
 
@@ -172,6 +177,15 @@ def create_app():
 
         if response.status_code == 404 and request.url.path != "/":
             return RedirectResponse(url="/", status_code=303)
+        return response
+
+    @app.middleware("http")
+    async def send_revision(request: Request, call_next):
+        """Ajouté en dernier, donc le plus externe : dit sur chaque réponse,
+        redirections comprises, de quel commit l'image a été construite.
+        """
+        response = await call_next(request)
+        response.headers["X-Revision"] = REVISION
         return response
 
     # Routeur d'authentification (login/logout/callback Azure Entra ID)
