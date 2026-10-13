@@ -44,7 +44,7 @@ jobs:
       cancel-in-progress: false
     environment:
       name: staging
-      url: https://oceens-staging-ineshjz.azurewebsites.net
+      url: https://oceens-staging-ineshjz-eha3e3baf4b6f2ag.spaincentral-01.azurewebsites.net
     steps:
       - uses: actions/checkout@v5
 
@@ -83,6 +83,7 @@ jobs:
           image: ${{ steps.image.outputs.image }}
           resource-group: oceens-rg
           app-name: oceens-staging-ineshjz
+          domain: oceens-staging-ineshjz-eha3e3baf4b6f2ag.spaincentral-01.azurewebsites.net
           auth-mode: ${{ vars.AUTH_MODE }}
           dev-login-key: ${{ secrets.DEV_LOGIN_KEY }}
           secret-key: ${{ secrets.SECRET_KEY }}

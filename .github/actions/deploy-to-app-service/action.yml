@@ -18,6 +18,11 @@ inputs:
   app-name:
     description: The environment's App Service app.
     required: true
+  domain:
+    description: >-
+      The app's default domain, as Azure gave it. Not built from the app's
+      name: in Spain Central, Azure adds a unique suffix and the region to it.
+    required: true
   auth-mode:
     description: AUTH_MODE, dev on a fork.
     required: true
@@ -116,10 +121,10 @@ runs:
     - name: Wait until the new image answers
       shell: bash
       env:
-        APP_NAME: ${{ inputs.app-name }}
+        DOMAIN: ${{ inputs.domain }}
         IMAGE: ${{ inputs.image }}
       run: |
-        url="https://$APP_NAME.azurewebsites.net/dev/login"
+        url="https://$DOMAIN/dev/login"
         revision="${IMAGE##*:}"
         limit=700
         start=$(date +%s)
