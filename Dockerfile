@@ -29,5 +29,17 @@ RUN uv sync --frozen
 # Le fichier .env ne doit PAS être copié dans l'image : fournir les secrets via
 # --env-file .env au lancement (docker run) ou via les variables d'environnement.
 
+# Les deux processus que lançait `launch.sh` : le site (`oceens`) et le daemon
+# de synthèses (`oceens-summaries`). Avec RUN_SUMMARIES_DAEMON, le lifespan du
+# site lance le daemon en sous-processus et l'arrête à la fermeture.
+ENV RUN_SUMMARIES_DAEMON=1
+
+# Le commit dont l'image est construite (`--build-arg REVISION=…`). Le site le
+# renvoie dans l'en-tête `X-Revision` de chaque réponse, pour qu'un déploiement
+# sache quelle image répond, et pas seulement qu'une image répond. En dernier,
+# pour garder en cache les couches au-dessus.
+ARG REVISION=unknown
+ENV REVISION=$REVISION
+
 # `oceens` est le point d'entrée installé avec le paquet (uvicorn sur 0.0.0.0:8000).
 CMD ["oceens"]
