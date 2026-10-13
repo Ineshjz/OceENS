@@ -1,3 +1,8 @@
+# The Architecture Check and the tests, on every push and pull request. Then the
+# deploy that waits on both: a push to the default branch whose checks pass is
+# built into one image, tagged with its commit, and deployed to Fork staging, an
+# App Service app whose settings and secrets live in the GitHub Environment
+# `staging`.
 name: CI
 
 on:
@@ -21,3 +26,68 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run pytest
+
+  # On a push to the default branch alone, once every check of the same run has
+  # passed: deploy on green.
+  deploy-staging:
+    name: deploy to staging
+    needs: [architecture, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/course-2026-fallback-clean-bench'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # One deploy at a time, in the order pushed; a newer push waiting replaces
+    # an older one waiting.
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: https://oceens-staging-ineshjz.azurewebsites.net
+    steps:
+      - uses: actions/checkout@v5
+
+      # One image per commit, tagged with it, so that whatever runs can be
+      # traced to the run that passed. A commit pushed twice is built once.
+      # The label links the package to this repository on GHCR. REVISION is
+      # the commit again, inside the image: the site sends it back in an
+      # X-Revision header, so the deploy can tell which image answered.
+      - name: Build and push the image, unless it exists
+        id: image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$image" > /dev/null 2>&1; then
+            echo "$image already built"
+          else
+            docker build \
+              --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --build-arg "REVISION=$GITHUB_SHA" \
+              -t "$image" .
+            docker push "$image"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy the image to staging
+        uses: ./.github/actions/deploy-to-app-service
+        with:
+          image: ${{ steps.image.outputs.image }}
+          resource-group: oceens-rg
+          app-name: oceens-staging-ineshjz
+          auth-mode: ${{ vars.AUTH_MODE }}
+          dev-login-key: ${{ secrets.DEV_LOGIN_KEY }}
+          secret-key: ${{ secrets.SECRET_KEY }}
+          mistral-api-key: ${{ secrets.MISTRAL_API_KEY }}
+          default-provider-api-type: ${{ vars.DEFAULT_PROVIDER_API_TYPE }}
+          default-provider-base-url: ${{ vars.DEFAULT_PROVIDER_BASE_URL }}
+          default-provider-model: ${{ vars.DEFAULT_PROVIDER_MODEL }}
+          default-provider-key-env: ${{ vars.DEFAULT_PROVIDER_KEY_ENV }}
