@@ -700,8 +700,13 @@ duplicates are refused.
 
 `.github/workflows/ci.yml` deploys the fork's default branch,
 `course-2026-fallback-clean-bench`, to Fork staging (`oceens-staging-ineshjz`), an App
-Service app on one Basic B1 plan in France Central (resource group `oceens-rg`),
+Service app on one Basic B1 plan in Spain Central (resource group `oceens-rg`),
 always on. Fork production (`oceens-prod-ineshjz`) is on the same plan.
+
+| Environment | App | Default domain |
+|---|---|---|
+| staging | `oceens-staging-ineshjz` | <https://oceens-staging-ineshjz-eha3e3baf4b6f2ag.spaincentral-01.azurewebsites.net> |
+| production | `oceens-prod-ineshjz` | <https://oceens-prod-ineshjz-fyath0anfkbvchgq.spaincentral-01.azurewebsites.net> |
 
 - **Staging, on green.** A push to the default branch whose `architecture` and `test`
   jobs pass is built into one image, tagged with its commit and pushed to GHCR
@@ -726,6 +731,11 @@ repository secret `AZURE_CREDENTIALS`, a service principal.
 
 ### Known limits
 
+- **The apps are in Spain Central, not France Central**, because this Azure subscription
+  may not deploy to France Central. There, Azure gives each app a default domain with a
+  unique suffix and the region (`<app>-<suffix>.spaincentral-01.azurewebsites.net`), not
+  `<app>.azurewebsites.net`. The workflow therefore names each app's domain as Azure gave
+  it, and never builds it from the app's name.
 - **The data is reset at every deploy and at every restart the platform makes.** The
   SQLite file lives on the container's own disk, not on App Service's lasting storage:
   `/home` is a network share on which SQLite cannot take its locks, and the site and the
