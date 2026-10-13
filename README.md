@@ -696,6 +696,46 @@ duplicates are refused.
 
 ---
 
+## Deploying on Azure App Service
+
+`.github/workflows/ci.yml` deploys the fork's default branch,
+`course-2026-fallback-clean-bench`, to Fork staging (`oceens-staging-ineshjz`), an App
+Service app on one Basic B1 plan in France Central (resource group `oceens-rg`),
+always on. Fork production (`oceens-prod-ineshjz`) is on the same plan.
+
+- **Staging, on green.** A push to the default branch whose `architecture` and `test`
+  jobs pass is built into one image, tagged with its commit and pushed to GHCR
+  (`ghcr.io/ineshjz/oceens:<commit>`), then deployed to staging. A commit pushed twice
+  is built once. Nothing is deployed from a pull request, or from a run with a red
+  check.
+- **Both processes in one container.** The image runs `oceens`, with
+  `RUN_SUMMARIES_DAEMON=1`: the site starts `oceens-summaries` itself, the two processes
+  `launch.sh` used to start.
+- **The deploy waits for the new image.** The image holds its commit as `REVISION`, which
+  the site sends back in the `X-Revision` header of every response. The deploy passes
+  only once `/dev/login` answers `200` with that commit, within 700 s, so a previous
+  container that is still answering does not count.
+
+Each environment's settings live in the GitHub Environment of the same name, never in a
+committed file: the secrets `DEV_LOGIN_KEY`, `SECRET_KEY` and `MISTRAL_API_KEY`, and the
+variables `AUTH_MODE` (`dev`), `DEFAULT_PROVIDER_API_TYPE`, `DEFAULT_PROVIDER_BASE_URL`,
+`DEFAULT_PROVIDER_MODEL` and `DEFAULT_PROVIDER_KEY_ENV`. Every deploy writes them to the
+app's settings (`.github/actions/deploy-to-app-service`), with `WEBSITES_PORT=8000` and
+`WEBSITES_ENABLE_APP_SERVICE_STORAGE=false`. The workflow logs in to Azure with the
+repository secret `AZURE_CREDENTIALS`, a service principal.
+
+### Known limits
+
+- **The data is reset at every deploy and at every restart the platform makes.** The
+  SQLite file lives on the container's own disk, not on App Service's lasting storage:
+  `/home` is a network share on which SQLite cannot take its locks, and the site and the
+  summaries daemon both write to it. Each start creates the tables and seeds them again,
+  so the LLM provider row always follows `DEFAULT_PROVIDER_*`, and everything written
+  since the last start is lost.
+- **Staging, production and a local run share one Mistral quota** when they hold the same
+  `MISTRAL_API_KEY`: a local run that sends many requests can make Mistral answer `429`
+  to production's calls.
+
 ## Deployment checklist
 
 - [ ] `.env` created with the real Azure credentials and a dedicated `SECRET_KEY`
@@ -713,8 +753,8 @@ duplicates are refused.
 
 ## Validating a change
 
-The automated tests are still few (`uv run pytest`) and there is no CI, so behaviour is
-mostly on you: before proposing a change, run the tests, then the
+The automated tests are still few (`uv run pytest`, also run by CI on every push), so
+behaviour is mostly on you: before proposing a change, run the tests, then the
 manual procedure in **[docs/smoke-test.md](docs/smoke-test.md)**: static checks, startup
 from a fresh clone, Docker, exit codes on invalid configuration, and the LLM key. Then
 test the routes your change touches, on a throwaway SQLite database (never a copy of
